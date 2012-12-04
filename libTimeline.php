@@ -1,5 +1,40 @@
 <?php
 
+
+class Timeline_Util{
+    
+    public static function normalize_date($date){
+        
+        $time = strtotime($date);
+        return strftime("%F,%T",$time);
+    }
+    
+    public static function timeline_format_date($date){
+        
+        $time = strtotime($date);
+        return strftime('%Y,%m,%d',$time);
+        
+    }
+    
+    public static function bifurcate_date($date){
+        
+//        echo sprintf("parsing date %s\n",$date);
+        
+        $date = self::normalize_date($date);
+        $dates = new stdClass();
+        $s = $e = new DateTime(Timeline_Util::normalize_date($date));
+        $interval = new DateInterval("P1D");
+        
+        $dates->startDate = $s->format('Y,m,d');
+        $e->add($interval);
+        $dates->endDate = $e->format('Y,m,d');
+     
+        return $dates;
+        
+        
+    }
+}
+
 /**
  * @TODO refactor to take advantage of PHP namespaces
  */
@@ -27,6 +62,12 @@ class Timeline {
     
     /**
      *
+     * @var String startdate; 
+     */
+    public $startDate;
+    
+    /**
+     *
      * @var Timeline_Date_Asset a media element for the main timeline 
      */
     public $asset;
@@ -39,6 +80,7 @@ class Timeline {
     
     public function __construct(array $params = null){
         $this->headline = isset($params['headline']) ? $params['headline'] : null;
+        $this->startDate= isset($params['startDate'])? $params['startDate']: null;
         $this->type     = isset($params['type'])     ? $params['type']     : null;
         $this->text     = isset($params['text'])     ? $params['text']     : null;
         $this->asset    = isset($params['asset'])    ? $params['asset']    : null;
@@ -227,7 +269,7 @@ class Omeka_Timeline_Data_Provider extends Timeline_Data_Provider {
     
     protected function exec_query(){
 
-        $source-get_table
+        $source->get_table('');
     }
     
 }
