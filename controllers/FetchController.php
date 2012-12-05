@@ -9,7 +9,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
     private function _makeMap(array $params = null) {
         $elements = $this->_getMetaElementIDs(array(
             'Dublin Core' => array(
-                'Date', 'Contributor', 
+                
                 'Title', 'Description'
                 ), 
             'LatLon'    => array(
@@ -31,21 +31,18 @@ class Rest_FetchController extends Omeka_Controller_Action {
             $lat      = $item->getAttVal('Latitude');
             $lon      = $item->getAttVal('Longitude');
             
-            if ($date) {
-
-                $fmtDate = Timeline_Util::bifurcate_date($date);
-            } else {
-                return null;
-            }
+            
             $id = $item->item->id;
             
-            return $dataset = array(
+            $dataset[] = array(
                 'id' => $id, 
                 'headline' => $headline, 
                 'date' => $date, 
                 'text' => $text, 
                 'geo' => array('Lat' => $lat, 'Lon' => $lon));
         }
+        
+        return $dataset;
     }
     private function _makeTimeline(array $params = null) {
         $elements = $this->_getMetaElementIDs(array('Dublin Core' => array('Date', 'Title', 'Description'), ));
