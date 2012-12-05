@@ -57,6 +57,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         
         if($items){
             $data = $this->_buildDataSet($items, $elements);
+            debug(sprintf("building dataset from %d items for %d elements; %d data records returned", count($items), count($elements), count($data)));
         }else{
             debug("no items returned for given metadata");
         }
@@ -190,7 +191,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
 
         debug("begin getItems with Meta");
         $db = $this->getDb();
-        $all = array();
+//        $all = array();
         $hits = array();
 
         $tbl = get_db()->getTable('ElementText');
@@ -201,24 +202,24 @@ class Rest_FetchController extends Omeka_Controller_Action {
             foreach ($matches as $match) {
                 $hits[$param][] = $match->record_id;
             }
-            debug(sprintf("searching for : `element_id` = %s", $param));
-            debug(sprintf("got %d matches", count($matches)));
+            debug(sprintf("searching for items with `element_id` = %s; got %d matches", $param, count($matches)));
+                
         }
-
+        
         $all = array_values($hits);
-        $intersection = array_pop($all);
+
+        $intersection = array();
+        foreach($all as $a){
+            $intersection = array_merge($a, $intersection);
+        }
+        $intersection = array_unique($intersection);
+        
+        
 
         foreach ($all as $arr) {
-            array_intersect($intersection, $arr);
+            $intersection = array_intersect($intersection, $arr);
         }
-//        echo "<hr/>all:<br/>";
-//        print_r($all);
-//        echo "<hr/>hits:<br/>";
-//        print_r($hits);
-//        echo "<hr/>intersection:<br/>";
-//        print_r($intersection);
-//        
-
+        
         $items = array();
 
 //        echo count($matches);
