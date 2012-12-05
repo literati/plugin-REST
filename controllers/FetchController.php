@@ -39,7 +39,12 @@ class Rest_FetchController extends Omeka_Controller_Action {
             }
             $id = $item->item->id;
             
-            return $dataset = array($id, $headline, $date, $text, $lat, $lon);
+            return $dataset = array(
+                'id' => $id, 
+                'headline' => $headline, 
+                'date' => $date, 
+                'text' => $text, 
+                'geo' => array('Lat' => $lat, 'Lon' => $lon));
         }
     }
     private function _makeTimeline(array $params = null) {
@@ -119,7 +124,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         $jsonData = Zend_Json::encode($timeline, false, array('enableJsonExprFinder' => true));
         $this->getResponse()
                 ->setHeader('Content-Type', 'application/x-javascript')
-                ->setBody("storyjs_jsonp_data = " . $jsonData)
+                ->setBody("jsonp_data = " . $jsonData)
                 ->sendResponse();
         exit;
     }
@@ -240,7 +245,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
 
             foreach ($elements as $el) {
 
-                echo (sprintf("metadata params are %s => %s\n", $elementSet, $el));
+                debug(sprintf("metadata params are %s => %s\n", $elementSet, $el));
 //                die("What?".$elementSet.$el);
                 $e = $tbl->findByElementSetNameAndElementName($elementSet, $el);
 
