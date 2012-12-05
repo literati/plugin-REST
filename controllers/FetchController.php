@@ -60,6 +60,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         }else{
             debug("no items returned for given metadata");
         }
+        
         $dates = array();
         foreach ($data as $item) {
             $headline = $item->getAttVal('Title');
@@ -153,7 +154,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         
         foreach ($items as $item) {
             if (!$item instanceof Omeka_Record) {
-                echo "not a record!<br/>";
+                debug(sprintf("Item with id %d is not a record!?? or maybe, just not public...", $item->id));
                 continue;
             }
 

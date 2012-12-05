@@ -45,9 +45,9 @@ class Rest_TimelineController extends Omeka_Controller_Action {
             $dates[] = $date;
         }
         $timeline = new Timeline(array(
-            "headline"  => "Sh*t People Say",
+            "headline"  => "Poe's Republic of Letters",
             "type"      => "default",
-            "text"      => "People say stuff",
+            "text"      => "Antebellum Print Culture",
             "startDate" => Timeline_Util::timeline_format_date("2012-01-26"),
             "date"      => $dates
             )
