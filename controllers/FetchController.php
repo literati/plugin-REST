@@ -71,7 +71,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
 
                 $fmtDate = Timeline_Util::bifurcate_date($date);
             } else {
-                debug("no date provided to timeline");
+                debug("no date provided to timeline for item id = ".$item->item->id);
                 return null;
             }
 
