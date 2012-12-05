@@ -168,7 +168,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
                 $attr = new prl_Attribute($element, $text['text']);
                 
                 $debug_txt = strlen($text['text'] > 25) ? substr($text['text'], 0, 25) : $text['text'];
-                debug(sprintf("looking for element text for record id = %d and element id = %d, got %s", $prl->item->id, $element->id, $text['text']));
+                debug(sprintf("looking for element text for record id = %d and element id = %d, got %s", $prl->item->id, $element->id, $debug_txt));
                 $prl->atrributes[] = $attr;
                 
             }
