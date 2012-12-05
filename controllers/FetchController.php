@@ -166,6 +166,8 @@ class Rest_FetchController extends Omeka_Controller_Action {
                 debug(sprintf("Current item id  = %s, current element id = %s",$prl->item->id, $element->id));
                 $text = $tbl->findBySQL("`record_id` = ? AND `element_id` = ?", array($prl->item->id, $element->id), true);
                 $attr = new prl_Attribute($element, $text['text']);
+                
+                $debug_txt = strlen($text['text'] > 25) ? substr($text['text'], 0, 25) : $text['text'];
                 debug(sprintf("looking for element text for record id = %d and element id = %d, got %s", $prl->item->id, $element->id, $text['text']));
                 $prl->atrributes[] = $attr;
                 
