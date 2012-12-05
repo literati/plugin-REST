@@ -48,12 +48,18 @@ class Rest_FetchController extends Omeka_Controller_Action {
         }
     }
     private function _makeTimeline(array $params = null) {
-        $elements = $this->_getMetaElementIDs(array('Dublin Core' => array('Date', 'Contributor', 'Title', 'Description'), ));
+        $elements = $this->_getMetaElementIDs(array('Dublin Core' => array('Date', 'Title', 'Description'), ));
 
+        /**
+         * @TODO what happens if we get back zero items?
+         */
         $items = $this->_getItemsWithMetadata($elements);
-
-        $data = $this->_buildDataSet($items, $elements);
-
+        
+        if($items){
+            $data = $this->_buildDataSet($items, $elements);
+        }else{
+            debug("no items returned for given metadata");
+        }
         $dates = array();
         foreach ($data as $item) {
             $headline = $item->getAttVal('Title');
@@ -136,14 +142,15 @@ class Rest_FetchController extends Omeka_Controller_Action {
      * @return array prl_Item
      */
     private function _buildDataSet($items, $params) {
-
+        assert(count($items > 0));
+        
         $elements = $this->_hydrateElements($params);
-//        print_r($elements);
+
         $db = get_db();
         $retItems = array();
 
         $tbl = $db->getTable('ElementText');
-
+        
         foreach ($items as $item) {
             if (!$item instanceof Omeka_Record) {
                 echo "not a record!<br/>";
