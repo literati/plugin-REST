@@ -1,27 +1,56 @@
 <?php
 
-class Rest_TimelineController extends Omeka_Controller_Action {
+class Rest_FetchController extends Omeka_Controller_Action {
 
     public function init() {
         
     }
 
+    private function _makeMap(array $params = null) {
+        $elements = $this->_getMetaElementIDs(array(
+            'Dublin Core' => array(
+                'Date', 'Contributor', 
+                'Title', 'Description'
+                ), 
+            'LatLon'    => array(
+                'Latitude', 'Longitude'
+                )
+            )
+        );
+
+        
+        $items = $this->_getItemsWithMetadata($elements);
+
+        $data = $this->_buildDataSet($items, $elements);
+
+        $dataset = array();
+        foreach ($data as $item) {
+            $headline = $item->getAttVal('Title');
+            $text     = $item->getAttVal('Description');
+            $date     = $item->getAttVal('Date');
+            $lat      = $item->getAttVal('Latitude');
+            $lon      = $item->getAttVal('Longitude');
+            
+            if ($date) {
+
+                $fmtDate = Timeline_Util::bifurcate_date($date);
+            } else {
+                return null;
+            }
+            $id = $item->item->id;
+            
+            return $dataset = array($id, $headline, $date, $text, $lat, $lon);
+        }
+    }
     private function _makeTimeline(array $params = null) {
         $elements = $this->_getMetaElementIDs(array('Dublin Core' => array('Date', 'Contributor', 'Title', 'Description'), ));
-//        $elements = $this->_getMetaElementIDs(array('LatLon' => array('Lat', 'Lon')));
-        
 
-        $items = $this->getItemsWithMetadata($elements);
+        $items = $this->_getItemsWithMetadata($elements);
 
-//        print_r($items);    
-        //strip down these Omeka_Items to only what we need...
-        $data = $this->buildDataSet($items, $elements);
-//        print_r($data);
-        //build Timeline_Date objects from our lightweight items
+        $data = $this->_buildDataSet($items, $elements);
+
         $dates = array();
         foreach ($data as $item) {
-//            print_r($item->atrributes);
-//            die();
             $headline = $item->getAttVal('Title');
             $text     = $item->getAttVal('Description');
             $date     = $item->getAttVal('Date');
@@ -57,12 +86,30 @@ class Rest_TimelineController extends Omeka_Controller_Action {
         return $timeline;
     }
 
-    public function findAction() {
+    public function timelineAction() {
 
         $tale = $this->getRequest()->getParam('tale');
-//print_r($this->getRequest()->getParams());
 
         $timeline = $this->_makeTimeline(array('tale' => $tale));
+
+        /**
+         * http://stv.whtly.com/2010/04/19/outputting-json-with-zend-framework/
+         * "storyjs_jsonp_data = " is required for Verite to work with jsonp
+         * https://github.com/VeriteCo/TimelineJS
+         */
+        $jsonData = Zend_Json::encode($timeline, false, array('enableJsonExprFinder' => true));
+        $this->getResponse()
+                ->setHeader('Content-Type', 'application/x-javascript')
+                ->setBody("storyjs_jsonp_data = " . $jsonData)
+                ->sendResponse();
+        exit;
+    }
+    
+    public function mapAction() {
+
+        $tale = $this->getRequest()->getParam('tale');
+
+        $timeline = $this->_makeMap(array('tale' => $tale));
 
         /**
          * http://stv.whtly.com/2010/04/19/outputting-json-with-zend-framework/
@@ -79,11 +126,11 @@ class Rest_TimelineController extends Omeka_Controller_Action {
 
     /**
      * 
-     * @param type $items an array of items to be simplified
+     * @param type $items an array of items to be built
      * @param type $params and array of fields as ElementSet:Element key/value pairs
      * @return array prl_Item
      */
-    private function buildDataSet($items, $params) {
+    private function _buildDataSet($items, $params) {
 
         $elements = $this->_hydrateElements($params);
 //        print_r($elements);
@@ -122,7 +169,7 @@ class Rest_TimelineController extends Omeka_Controller_Action {
      * @param array $params element ids for which to search
      * @return type
      */
-    private function getItemsWithMetadata(array $params) {
+    private function _getItemsWithMetadata(array $params) {
 //        print_r($params);
 
         debug("begin getItems with Meta");
@@ -193,7 +240,7 @@ class Rest_TimelineController extends Omeka_Controller_Action {
 
             foreach ($elements as $el) {
 
-                debug(sprintf("metadata params are %s => %s", $elementSet, $el));
+                echo (sprintf("metadata params are %s => %s\n", $elementSet, $el));
 //                die("What?".$elementSet.$el);
                 $e = $tbl->findByElementSetNameAndElementName($elementSet, $el);
 
