@@ -2,6 +2,8 @@
 
 class Rest_FetchController extends Omeka_Controller_Action {
 
+    const TALE_TYPE = "TEI Document";
+    
     public function init() {
         
     }
@@ -9,7 +11,6 @@ class Rest_FetchController extends Omeka_Controller_Action {
     private function _makeMap(array $params = null) {
         $elements = $this->_getMetaElementIDs(array(
             'Dublin Core' => array(
-                
                 'Title', 'Description'
                 ), 
             'LatLon'    => array(
@@ -17,11 +18,13 @@ class Rest_FetchController extends Omeka_Controller_Action {
                 )
             )
         );
+        
+        
 
         
         $items = $this->_getItemsWithMetadata($elements);
 
-        $data = $this->_buildDataSet($items, $elements);
+        $data = $this->_buildDataSetFromItems($items, $elements);
 
         $dataset = array();
         foreach ($data as $item) {
@@ -39,7 +42,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
                 'headline' => $headline, 
                 'date' => $date, 
                 'text' => $text, 
-                'geo' => array('Lat' => $lat, 'Lon' => $lon));
+                'geo' => array('lat' => $lat, 'lon' => $lon));
         }
         
         return $dataset;
@@ -53,7 +56,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         $items = $this->_getItemsWithMetadata($elements);
         
         if($items){
-            $data = $this->_buildDataSet($items, $elements);
+            $data = $this->_buildDataSetFromItems($items, $elements);
             debug(sprintf("building dataset from %d items for %d elements; %d data records returned", count($items), count($elements), count($data)));
         }else{
             debug("no items returned for given metadata");
@@ -96,6 +99,21 @@ class Rest_FetchController extends Omeka_Controller_Action {
         return $timeline;
     }
 
+    public function returnJsonp($data, $callback=null){
+        /**
+         * http://stv.whtly.com/2010/04/19/outputting-json-with-zend-framework/
+         * "storyjs_jsonp_data = " is required for Verite to work with jsonp
+         * https://github.com/VeriteCo/TimelineJS
+         */
+        $callback = $callback ? $callback." = " : null; 
+        $jsonData = Zend_Json::encode($data, false, array('enableJsonExprFinder' => true));
+        $this->getResponse()
+                ->setHeader('Content-Type', 'application/x-javascript')
+                ->setBody($callback. $jsonData)
+                ->sendResponse();
+        exit;
+    }
+    
     public function timelineAction() {
 
         $tale = $this->getRequest()->getParam('tale');
@@ -110,7 +128,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         $jsonData = Zend_Json::encode($timeline, false, array('enableJsonExprFinder' => true));
         $this->getResponse()
                 ->setHeader('Content-Type', 'application/x-javascript')
-                ->setBody("storyjs_jsonp_data = " . $jsonData)
+                ->setBody($jsonData)
                 ->sendResponse();
         exit;
     }
@@ -134,13 +152,21 @@ class Rest_FetchController extends Omeka_Controller_Action {
         exit;
     }
 
+    public function talesAction($name = null){
+        $items = $this->_getItemsByType(self::TALE_TYPE);
+        $params = array('Dublin Core'=>
+            array('Title'));
+        $tales = $this->_buildDataSetFromItems($items, $params);
+        $this->returnJsonp($tales);
+        
+    }
     /**
      * 
      * @param type $items an array of items to be built
      * @param type $params and array of fields as ElementSet:Element key/value pairs
      * @return array prl_Item
      */
-    private function _buildDataSet($items, $params) {
+    private function _buildDataSetFromItems($items, $params) {
         assert(count($items > 0));
         
         $elements = $this->_hydrateElements($params);
@@ -178,6 +204,19 @@ class Rest_FetchController extends Omeka_Controller_Action {
         return $retItems;
     }
 
+    
+    private function _getItemsByType($type_name){
+        $db = get_db();
+        $record = $db->getTable('ItemType')->findByName($type_name);
+        debug(sprintf("getting ItemType record for query '%s'; found record with ID %d", $type_name, $record->id));
+        $items = $db->getTable('Item')->findBySQL('item_type_id = ?', array($record->id));
+        if(count($items) > 0){
+            return $items;
+        }else{
+            return false;
+        }
+    }
+    
     /**
      * 
      * @param array $params element ids for which to search
@@ -254,7 +293,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
 
             foreach ($elements as $el) {
 
-                debug(sprintf("metadata params are %s => %s\n", $elementSet, $el));
+                debug(sprintf("metadata params are %s => %s", $elementSet, $el));
 //                die("What?".$elementSet.$el);
                 $e = $tbl->findByElementSetNameAndElementName($elementSet, $el);
 
