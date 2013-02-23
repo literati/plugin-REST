@@ -3,7 +3,8 @@
 
 
 
-use \Omeka_Record;
+
+
 if (!defined('REST_PLUGIN_DIR')) {
     define('REST_PLUGIN_DIR', dirname(__FILE__));
 }
@@ -20,39 +21,10 @@ class Rest extends Omeka_Plugin_Abstract {
  * must have a corresponding public 
  * method of the form hook{Hookname} as above. 
  */
-    protected $_hooks = array(
-//        'install', 
-        'initialize', 
-//        'public_theme_header', 
-//        'public_theme_body', 
-//        'uninstall', 
-//        'define_acl'
-    );
-
-    /**
-     *
-     * @var string[] the aset of filters we are implementing
-     */
-    //protected $_filters = array('admin_navigation_main');
+protected $_hooks = array('initialize', 'define_routes');
 
 
     public function hookInitialize() {
-        
-
-    }
-
-    /**
-     * @param type $request 
-     */
-    public function hookPublicThemeHeader($request) {
-        
-    }
-
-    /**
-     * Insert something into the theme body
-     * @param type $request 
-     */
-    public function hookPublicThemeBody($request) {
 
     }
 
@@ -65,24 +37,6 @@ class Rest extends Omeka_Plugin_Abstract {
         
     }
     
-    
-    /**
-     * when the user deletes us from Omeka, cleanup after ourselves by DROPPING or db tables, etc
-     */
-    function hookUninstall() {
-        
-    }
-    
-    
-    /**
-     * 
-     * 
-     * 
-     */
-    function filterAdminNavigationMain() {
-        
-    }
-
     
     /**
      * 
@@ -98,8 +52,15 @@ class Rest extends Omeka_Plugin_Abstract {
         
     }
     
+    public function hookDefineRoutes($router){
+        
+        $router->addConfig(new Zend_Config_Ini(REST_PLUGIN_DIR .
+            DIRECTORY_SEPARATOR . 'routes.ini', 'routes'));
+        
+        
+    }
     
 }
 
 $rest = new Rest();
-
+$rest->setUp();
