@@ -1,7 +1,7 @@
 <?php
 
 
-class Rest_FetchController extends Omeka_Controller_Action {
+abstract class Rest_FetchController extends Omeka_Controller_Action {
 
     
     
@@ -52,7 +52,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         return $dataset;
     }
     
-    private function _findByDCTitle($title){
+    protected function _findByDCTitle($title){
         $db = get_db();
         $tbl = $db->getTable('Element');
         $dc = $tbl->findByElementSetNameAndElementName('Dublin Core', 'Title');
@@ -73,7 +73,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         return $item;
     }
     
-    private function _makeTimeline(array $params = null) {
+    protected function _makeTimeline(array $params = null) {
         $tale = $this->_findByDCTitle($params['tale']);
         echo sprintf("trying to get item for search term %s, with item_id %s", $params['tale'], $tale[0]->record_id);
         //get everything in the db having values for these fields
@@ -131,7 +131,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
      * "storyjs_jsonp_data = " is required for Verite to work with jsonp
      * https://github.com/VeriteCo/TimelineJS
      */
-    private function _sendJsonResponse($data, $callback=null){
+    protected function _sendJsonResponse($data, $callback=null){
         $jsonp = $callback ? $callback.'=' : null;
         $json   = Zend_Json::encode($data, false, array('enableJsonExprFinder' => true));
         $this->getResponse()
@@ -241,7 +241,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
      * @param array $params element ids for which to search
      * @return type
      */
-    private function _getItemsWithMetadata(array $params) {
+    protected function _getItemsWithMetadata(array $params) {
 //        print_r($params);
 
         debug("begin getItems with Meta");
@@ -317,14 +317,14 @@ class Rest_FetchController extends Omeka_Controller_Action {
     /**
      * 
      * @param array $params key value pairs where
-     *  $key = array of Element Sets (ie Dublin Core)
+     *  $key is the name of an Element Set (ie Dublin Core)
      *  $value = array of Element names (ie Date)
      * @return array of element ids or FALSE
      * the ids each point to an array containing the element 'set' and 'name'
      */
     private function _getMetaElementIDs(array $params) {
 //        print_r($params);
-
+        
         $eArr = false;
         $db = get_db();
         $tbl = $db->getTable('Element');
@@ -417,8 +417,8 @@ class prl_Element {
 
     public function __construct($id, $name, $elementSetName, $elementSetID = null) {
         $this->id = $id;
-        $this->name                       = $name;
-        $this->elementSetID         = $elementSetID;
+        $this->name             = $name;
+        $this->elementSetID     = $elementSetID;
         $this->elementSetName   = $elementSetName;
     }
 
