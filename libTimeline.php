@@ -4,8 +4,12 @@
 class Timeline_Util{
     
     public static function normalize_date($date){
-        
+        if(preg_match('/^[0-9]{4}$/', $date)){
+            debug("got a four-digit year as date input");
+            $date = "01-01-".$date;
+        }
         $time = strtotime($date);
+        debug(sprintf("strftime yields %s", $time));
         return strftime("%F,%T",$time);
     }
     
@@ -17,9 +21,7 @@ class Timeline_Util{
     }
     
     public static function bifurcate_date($date){
-        
-//        echo sprintf("parsing date %s\n",$date);
-        
+        debug(sprintf("bifurcating date %s", $date));
         $date = self::normalize_date($date);
         $dates = new stdClass();
         $s = $e = new DateTime(Timeline_Util::normalize_date($date));
@@ -28,10 +30,9 @@ class Timeline_Util{
         $dates->startDate = $s->format('Y,m,d');
         $e->add($interval);
         $dates->endDate = $e->format('Y,m,d');
-     
+        debug(sprintf("returning start date %s end date %s", $dates->startDate, $dates->endDate));
         return $dates;
-        
-        
+    
     }
 }
 

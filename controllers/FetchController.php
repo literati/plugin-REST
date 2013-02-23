@@ -1,15 +1,23 @@
 <?php
 
+
 class Rest_FetchController extends Omeka_Controller_Action {
 
+    
+    
     public function init() {
         
     }
 
+    
+    /**
+     * @TODO allow additional params to be considered
+     * @param array $params
+     * @return type
+     */
     private function _makeMap(array $params = null) {
         $elements = $this->_getMetaElementIDs(array(
             'Dublin Core' => array(
-                
                 'Title' 
                 ), 
             'LatLon'    => array(
@@ -43,7 +51,32 @@ class Rest_FetchController extends Omeka_Controller_Action {
         
         return $dataset;
     }
+    
+    private function _findByDCTitle($title){
+        $db = get_db();
+        $tbl = $db->getTable('Element');
+        $dc = $tbl->findByElementSetNameAndElementName('Dublin Core', 'Title');
+//        echo sprintf("found element for DC::title with id %s", $dc->id);
+        unset($tbl);
+        
+        $tbl = $db->getTable('ElementText');
+        
+        $result = $tbl->findBySql('element_id = ? and text = ?', array($dc->id, $title));
+        
+        $item = $db->getTable('Item')->find($result[0]->record_id);
+        
+        
+//        $item = $tbl->findBySql('element_id = ? and text = ?', array($dc->id,$title)); //findOne=true to prevent multiple return values
+//        echo sprintf("looking for element text '%s' and element set id = %s; found item->id = %s ",$title, $dc->id, $item[0]->record_id);
+//        print_r($item->id);
+//        die();
+        return $item;
+    }
+    
     private function _makeTimeline(array $params = null) {
+        $tale = $this->_findByDCTitle($params['tale']);
+        echo sprintf("trying to get item for search term %s, with item_id %s", $params['tale'], $tale[0]->record_id);
+        //get everything in the db having values for these fields
         $elements = $this->_getMetaElementIDs(array('Dublin Core' => array('Date', 'Title', 'Description'), ));
 
         /**
@@ -52,6 +85,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
         $items = $this->_getItemsWithMetadata($elements);
         
         if($items){
+            $items = $this->_filterResultSet($items, $tale[0]->record_id);
             $data = $this->_buildDataSet($items, $elements);
             debug(sprintf("building dataset from %d items for %d elements; %d data records returned", count($items), count($elements), count($data)));
         }else{
@@ -65,14 +99,13 @@ class Rest_FetchController extends Omeka_Controller_Action {
             $date     = $item->getAttVal('Date');
             
             if ($date) {
-
                 $fmtDate = Timeline_Util::bifurcate_date($date);
             } else {
                 debug("no date provided to timeline for item id = ".$item->item->id);
                 return null;
             }
 
-            $date = new Timeline_Date(array(
+            $d = new Timeline_Date(array(
                         'startDate' => $fmtDate->startDate,
                         'endDate' => $fmtDate->endDate,
                         'headline' => $headline,
@@ -80,7 +113,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
 //                'asset'     => $asset
                             )
             );
-            $dates[] = $date;
+            $dates[] = $d;
         }
         $timeline = new Timeline(array(
                     "headline" => "Sample Timeline",
@@ -90,47 +123,73 @@ class Rest_FetchController extends Omeka_Controller_Action {
                     "date" => $dates
                         )
         );
-        $timeline = array('timeline' => $timeline);
-
-        return $timeline;
+        return array('timeline' => $timeline);
     }
 
-    public function timelineAction() {
-
-        $tale = $this->getRequest()->getParam('tale');
-
-        $timeline = $this->_makeTimeline(array('tale' => $tale));
-
-        /**
-         * http://stv.whtly.com/2010/04/19/outputting-json-with-zend-framework/
-         * "storyjs_jsonp_data = " is required for Verite to work with jsonp
-         * https://github.com/VeriteCo/TimelineJS
-         */
-        $jsonData = Zend_Json::encode($timeline, false, array('enableJsonExprFinder' => true));
+    /**
+     * http://stv.whtly.com/2010/04/19/outputting-json-with-zend-framework/
+     * "storyjs_jsonp_data = " is required for Verite to work with jsonp
+     * https://github.com/VeriteCo/TimelineJS
+     */
+    private function _sendJsonResponse($data, $callback=null){
+        $jsonp = $callback ? $callback.'=' : null;
+        $json   = Zend_Json::encode($data, false, array('enableJsonExprFinder' => true));
         $this->getResponse()
                 ->setHeader('Content-Type', 'application/x-javascript')
-                ->setBody("storyjs_jsonp_data = " . $jsonData)
+                ->setBody($jsonp . $json)
                 ->sendResponse();
         exit;
     }
     
-    public function mapAction() {
-
+    public function timelineAction() {
         $tale = $this->getRequest()->getParam('tale');
-
-        $timeline = $this->_makeMap(array('tale' => $tale));
-
-        /**
-         * http://stv.whtly.com/2010/04/19/outputting-json-with-zend-framework/
-         * "storyjs_jsonp_data = " is required for Verite to work with jsonp
-         * https://github.com/VeriteCo/TimelineJS
-         */
-        $jsonData = Zend_Json::encode($timeline, false, array('enableJsonExprFinder' => true));
-        $this->getResponse()
-                ->setHeader('Content-Type', 'application/x-javascript')
-                ->setBody("jsonp_data = " . $jsonData)
-                ->sendResponse();
-        exit;
+        $data = $this->_makeTimeline(array('tale' => $tale));
+        $this->_sendJsonResponse($data, "storyjs_jsonp_data");
+    }
+    
+    public function mapAction() {
+        $tale = $this->getRequest()->getParam('tale');
+        $data = $this->_makeMap(array('tale' => $tale));
+        $this->_sendJsonResponse($data, "jsonp_data");
+    }
+    
+    public function imageAction(){
+        require_once('application/helpers/FileFunctions.php');
+        require_once('application/helpers/StringFunctions.php');
+        require_once('application/helpers/UrlFunctions.php');
+        
+        $db = get_db();
+        
+        //get the id of the tale
+        $title = $this->getRequest()->getParam('tale');
+        
+        $tale  = $this->_findByDCTitle($title);
+        assert(get_class($tale) == 'Item');
+        
+        //get the id of the relation for 'representativeDepictionOf'...
+        $irp = $db->getTable('ItemRelationsProperty')->findBySql('label = ? ', array('Representative Depiction'), true);
+        assert(get_class($irp) == 'ItemRelationsProperty');
+        
+        //get id of the local part of that relation
+        $irt = $db->getTable('ItemRelationsItemRelation');
+        $ir  = $irt->findBySql('object_item_id = ? and property_id = ?', array($tale->id, $irp->id),true);
+        assert(get_class($ir) == 'ItemRelationsItemRelation');
+        
+//        echo sprintf("looking for relation where object = %s and property = %s, got ir->id = %s", $tale->id, $irp->id, $ir->id);
+        $curItem = $db->getTable('Item')->find($ir->subject_item_id);
+        
+//        set_current_item($curItem);
+//        $ft = $db->getTable('File')->findBySql('item_id = ?', array($ir->subject_item_id), true);
+//        $img = 
+        //get the file associated with that id
+//        header(sprintf("Location = %s", $file));
+        $this->view->item = $curItem;
+//        echo item_square_thumbnail();
+        
+        //return the image
+//        die('done');
+        
+        
     }
 
     /**
@@ -204,14 +263,11 @@ class Rest_FetchController extends Omeka_Controller_Action {
         
         $all = array_values($hits);
 
-        $intersection = array();
+        $merge = array();
         foreach($all as $a){
-            $intersection = array_merge($a, $intersection);
+            $merge = array_merge($a, $merge);
         }
-        $intersection = array_unique($intersection);
-        
-        
-
+        $intersection = array_unique($merge);
         foreach ($all as $arr) {
             $intersection = array_intersect($intersection, $arr);
         }
@@ -221,19 +277,43 @@ class Rest_FetchController extends Omeka_Controller_Action {
 //        echo count($matches);
         foreach ($intersection as $match) {
             debug(sprintf("looking up item record for id= %d", $match));
-            $item = get_db()->getTable('Item')->find($match);
-//            echo sprintf("item match, id = %s<br/>", $match->record_id);
-//            echo "matched item class == ".get_class($item)."<br/>";
-//            echo "item is instance of Omeka_Record? ". ($item instanceof Omeka_Record)."<br/>";
-//            
+            $item     = get_db()->getTable('Item')->find($match);
             $items[] = $item;
-
             unset($item);
         }
         debug(sprintf("returning %d items", count($items)));
         return $items;
     }
-
+    
+    private function _filterResultSet($items, $id){
+        if(!$id){
+            return $items;
+        }
+        $db = get_db();
+        $tbl = $db->getTable('ItemRelationsItemRelation');
+        $valids = $tbl->findByObjectItemId($id);
+        $valid_ids = array();
+        foreach($valids as $valid){
+            $valid_ids[] = $valid->subject_item_id;
+        }
+        print_r($valid_ids);
+        
+        echo sprintf("filtering %s items", count($items));
+        $reduced = array();
+        foreach($items as $item){
+            echo sprintf("testing items array item->id = %s", $item->id);
+            if(!in_array($item->id, $valid_ids)){
+                echo "unsetting item";
+                unset($item); 
+           }else{
+               $reduced[]  = $item;
+           }
+        }
+        print_r($reduced);
+        echo sprintf("returning %s items", count($reduced));
+        return $reduced;
+    }
+    
     /**
      * 
      * @param array $params key value pairs where
@@ -280,7 +360,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
 
             $elemSetR = $es->find($elementR->element_set_id);
 
-            $x = new prl_Element($id, $elementR->name, null, $elemSetR->name);
+            $x = new prl_Element($id, $elementR->name, $elemSetR->name);
 
             $eArr[] = $x;
         }
@@ -290,22 +370,12 @@ class Rest_FetchController extends Omeka_Controller_Action {
 
 }
 
-class prl_Element {
-
-    public $id;
-    public $name;
-    public $elementSetID;
-    public $elementSetName;
-
-    public function __construct($id, $name, $elementSetID = null, $elementSetName) {
-        $this->id = $id;
-        $this->name = $name;
-        $this->elementSetID = $elementSetID;
-        $this->elementSetName = $elementSetName;
-    }
-
-}
-
+/**
+ * This class is a top-level element of a data abstraction layer
+ *  for Omeka data.
+ *  The prl_Item defined here is composed of an array of subtype 
+ *  prl_Attribute, whicih itself is composed of prl_element:value pairs
+ */
 class prl_Item {
 
     public $item; //Omeka Item
@@ -321,6 +391,10 @@ class prl_Item {
     }
 }
 
+/**
+ * prl_Attribute is a unit of metadata where the value is a simple string
+ * and the $element is composed of Omeka element_set:element pairs
+ */
 class prl_Attribute {
 
     public $element; //prl_Element
@@ -329,6 +403,23 @@ class prl_Attribute {
     public function __construct($element, $value) {
         $this->element = $element;
         $this->value = $value;
+    }
+
+}
+
+
+class prl_Element {
+
+    public $id;
+    public $name;
+    public $elementSetID;
+    public $elementSetName;
+
+    public function __construct($id, $name, $elementSetName, $elementSetID = null) {
+        $this->id = $id;
+        $this->name                       = $name;
+        $this->elementSetID         = $elementSetID;
+        $this->elementSetName   = $elementSetName;
     }
 
 }
