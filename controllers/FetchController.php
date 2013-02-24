@@ -1,7 +1,7 @@
 <?php
 
 
-abstract class Rest_FetchController extends Omeka_Controller_Action {
+class Rest_FetchController extends Omeka_Controller_Action {
 
     
     
@@ -55,56 +55,86 @@ abstract class Rest_FetchController extends Omeka_Controller_Action {
         return $dataset;
     }
     
-    protected function _findByDCTitle($title){
+    /**
+     * 
+     * @param Item   $subject
+     * @param string $vocabulary namespace prefix of the vocab
+     * @param string $property local_part
+     * @param Item   $object
+     * @return Item|false  the other side of the relationship
+     */
+    protected function getRelationshipMember($vocabulary, $property, $subject=null, $object=null, $one=true){
+        if(!$subject and !$object) return false;
+        if( $subject and  $object) return false;
+        $missing =  $subject ? 'object' : 'subject';
+        $known   = !$subject ? 'object' : 'subject';
+        
+        $db = get_db();
+        $vocab_record = $db->getTable('ItemRelationsVocabulary')->findBySql('namespace_prefix = ? ', array($vocabulary), true);
+        $prpty_record = $db->getTable('ItemRelationsProperty')
+                ->findBySql('local_part = ? and vocabulary_id = ?', array($property, $vocab_record->id), true);
+        
+        $relation = $db->getTable('ItemRelationsItemRelation')
+                ->findBySql($known.'_item_id = ? and property_id = ?', array($$known->id, $prpty_record->id), $one);
+        
+
+        $more_than_one = (is_array($relation) and count($relation > 1));
+        $right_type = $more_than_one ? get_class($relation[0]) == 'ItemRelationsItemRelation' : get_class($relation) == 'ItemRelationsItemRelation';
+
+        if(!$right_type) return false;
+        
+        $field  = $missing.'_item_id';
+        
+        if($more_than_one){
+            $members = array();
+            foreach($relation as $r){
+                $members[] = $db->getTable('Item')->find($r->$field);
+            }
+            return $members;
+        }
+        
+        $member = $db->getTable('Item')->find($relation->$field);
+        
+        if(!$member) return false;
+        
+        return $member;
+    }
+    
+    protected function _findByElementSetNameValue($set, $name, $value, $one=true){
         $db = get_db();
         $tbl = $db->getTable('Element');
-        $dc = $tbl->findByElementSetNameAndElementName('Dublin Core', 'Title');
+        $dc = $tbl->findByElementSetNameAndElementName($set, $name);
 //        echo sprintf("found element for DC::title with id %s", $dc->id);
         unset($tbl);
         
         $tbl = $db->getTable('ElementText');
         
-        $result = $tbl->findBySql('element_id = ? and text = ?', array($dc->id, $title));
-        
-        $item = $db->getTable('Item')->find($result[0]->record_id);
-        
-        
-//        $item = $tbl->findBySql('element_id = ? and text = ?', array($dc->id,$title)); //findOne=true to prevent multiple return values
-//        echo sprintf("looking for element text '%s' and element set id = %s; found item->id = %s ",$title, $dc->id, $item[0]->record_id);
-//        print_r($item->id);
-//        die();
+        $result = $tbl->findBySql('element_id = ? and text = ?', array($dc->id, $value), $one);
+        if(!$one){
+            $items = array();
+            foreach($result as $r){
+                $items[] = $db->getTable('Item')->find($r->record_id);
+            }
+            return $items;
+        }
+        $item = $db->getTable('Item')->find($result->record_id);
+
         return $item;
     }
     
-    protected function _makeTimeline(array $params = null) {
-        $tale = $this->_findByDCTitle($params['tale']);
-        echo sprintf("trying to get item for search term %s, with item_id %s", $params['tale'], $tale[0]->record_id);
-        //get everything in the db having values for these fields
-        $elements = $this->_getMetaElementIDs(array('Dublin Core' => array('Date', 'Title', 'Description'), ));
+    protected function _makeTimeline($items) {
 
-        /**
-         * @TODO what happens if we get back zero items?
-         */
-        $items = $this->_getItemsWithMetadata($elements);
-        
-        if($items){
-            $items = $this->_filterResultSet($items, $tale[0]->record_id);
-            $data = $this->_buildDataSet($items, $elements);
-            debug(sprintf("building dataset from %d items for %d elements; %d data records returned", count($items), count($elements), count($data)));
-        }else{
-            debug("no items returned for given metadata");
-        }
-        
         $dates = array();
-        foreach ($data as $item) {
-            $headline = $item->getAttVal('Title');
-            $text     = $item->getAttVal('Description');
-            $date     = $item->getAttVal('Date');
+        foreach ($items as $item) {
+            
+            $headline = $this->getMetaFieldValue('Dublin Core', 'Title', $item);
+            $text     = $this->getMetaFieldValue('Dublin Core', 'Description', $item);
+            $date     = $this->getMetaFieldValue('Dublin Core', 'Date', $item);
             
             if ($date) {
                 $fmtDate = Timeline_Util::bifurcate_date($date);
             } else {
-                debug("no date provided to timeline for item id = ".$item->item->id);
+                debug("no date provided to timeline for item id = ".$item->id);
                 return null;
             }
 
@@ -124,8 +154,9 @@ abstract class Rest_FetchController extends Omeka_Controller_Action {
                     "text" => "Poe's Republic of Letters",
                     "startDate" => Timeline_Util::timeline_format_date("2012-01-26"),
                     "date" => $dates
-                        )
+                    )
         );
+
         return array('timeline' => $timeline);
     }
 
@@ -250,34 +281,26 @@ abstract class Rest_FetchController extends Omeka_Controller_Action {
         return $items;
     }
     
-    private function _filterResultSet($items, $id){
-        if(!$id){
-            return $items;
-        }
-        $db = get_db();
-        $tbl = $db->getTable('ItemRelationsItemRelation');
-        $valids = $tbl->findByObjectItemId($id);
-        $valid_ids = array();
-        foreach($valids as $valid){
-            $valid_ids[] = $valid->subject_item_id;
-        }
-        print_r($valid_ids);
+    /**
+     * 
+     * @param array Item $items
+     * @param string $type
+     * @return array Item
+     */
+    protected function filterByItemType($items,$type){
         
-        echo sprintf("filtering %s items", count($items));
-        $reduced = array();
+        $item_type = get_db()->getTable('ItemType')->findByName($type);
+        
+        $filtered_items = array();
         foreach($items as $item){
-            echo sprintf("testing items array item->id = %s", $item->id);
-            if(!in_array($item->id, $valid_ids)){
-                echo "unsetting item";
-                unset($item); 
-           }else{
-               $reduced[]  = $item;
-           }
+            if($item->item_type_id == $item_type->id){
+                $filtered_items[] = $item;
+            }
         }
-        print_r($reduced);
-        echo sprintf("returning %s items", count($reduced));
-        return $reduced;
+        
+        return $filtered_items;
     }
+
     
     
     /**
@@ -285,7 +308,7 @@ abstract class Rest_FetchController extends Omeka_Controller_Action {
      * @param  string $set the metadata set, ie 'Dublin Core'
      * @param  string $element the element name, ie 'Title'
      * @param  Item   $item an Omeka Item
-     * @return string the text value of the field
+     * @return string |false the text value of the field
      */
     protected function getMetaFieldValue($set, $element, $item){
         $db = get_db();
@@ -293,14 +316,11 @@ abstract class Rest_FetchController extends Omeka_Controller_Action {
         
         if(!$el) return false;
         
-        $texts = $db->getTable('ElementText')->findByElement($el->id);
+        $text = $db->getTable('ElementText')->findBySql("element_id = ? and record_id = ?",array($el->id, $item->id), true);
         
-        if(empty($texts)) return false;
+        if(empty($text)) return false;
         
-        $value = array_shift($texts);
-        
-        
-        return $value->text;
+        return $text->text;
     }
     
     
