@@ -156,44 +156,6 @@ abstract class Rest_FetchController extends Omeka_Controller_Action {
         $this->_sendJsonResponse($data, "jsonp_data");
     }
     
-    public function imageAction(){
-        require_once('application/helpers/FileFunctions.php');
-        require_once('application/helpers/StringFunctions.php');
-        require_once('application/helpers/UrlFunctions.php');
-        
-        $db = get_db();
-        
-        //get the id of the tale
-        $title = $this->getRequest()->getParam('tale');
-        
-        $tale  = $this->_findByDCTitle($title);
-        assert(get_class($tale) == 'Item');
-        
-        //get the id of the relation for 'representativeDepictionOf'...
-        $irp = $db->getTable('ItemRelationsProperty')->findBySql('label = ? ', array('Representative Depiction'), true);
-        assert(get_class($irp) == 'ItemRelationsProperty');
-        
-        //get id of the local part of that relation
-        $irt = $db->getTable('ItemRelationsItemRelation');
-        $ir  = $irt->findBySql('object_item_id = ? and property_id = ?', array($tale->id, $irp->id),true);
-        assert(get_class($ir) == 'ItemRelationsItemRelation');
-        
-//        echo sprintf("looking for relation where object = %s and property = %s, got ir->id = %s", $tale->id, $irp->id, $ir->id);
-        $curItem = $db->getTable('Item')->find($ir->subject_item_id);
-        
-//        set_current_item($curItem);
-//        $ft = $db->getTable('File')->findBySql('item_id = ?', array($ir->subject_item_id), true);
-//        $img = 
-        //get the file associated with that id
-//        header(sprintf("Location = %s", $file));
-        $this->view->item = $curItem;
-//        echo item_square_thumbnail();
-        
-        //return the image
-//        die('done');
-        
-        
-    }
 
     /**
      * 

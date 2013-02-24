@@ -42,5 +42,31 @@ class Rest_TalesController extends Rest_FetchController {
 //        $this->view->uri = item_file('permalink');
     }
     
+    
+    public function imageAction(){
+        require_once('application/helpers/FileFunctions.php');
+        require_once('application/helpers/StringFunctions.php');
+        require_once('application/helpers/UrlFunctions.php');
+        
+        $db = get_db();
+        
+        //get the id of the relation for 'representativeDepictionOf'...
+        $irp = $db->getTable('ItemRelationsProperty')->findBySql('label = ? ', array('Representative Depiction'), true);
+        assert(get_class($irp) == 'ItemRelationsProperty');
+        
+        //get id of the local part of that relation
+        $irt = $db->getTable('ItemRelationsItemRelation');
+        $ir  = $irt->findBySql('object_item_id = ? and property_id = ?', array($this->item->id, $irp->id),true);
+        assert(get_class($ir) == 'ItemRelationsItemRelation');
+        
+//        echo sprintf("looking for relation where object = %s and property = %s, got ir->id = %s", $tale->id, $irp->id, $ir->id);
+        $curItem = $db->getTable('Item')->find($ir->subject_item_id);
+
+        $this->view->item = $curItem;
+
+        
+        
+    }
+
 }
 ?>
