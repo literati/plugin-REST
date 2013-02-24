@@ -9,7 +9,7 @@ class Rest_TalesController extends Rest_FetchController {
         $title = $this->_getParam('title');
         if(!empty($title)){
             $this->title = $this->deHyphenize($title);
-            $this->item  = $this->_findByDCTitle(ucwords($this->title));
+            $this->item  = $this->_findByElementSetNameValue('Dublin Core', 'Title', ucwords($this->title));
         }
     }
     
@@ -39,34 +39,27 @@ class Rest_TalesController extends Rest_FetchController {
     
     public function textAction(){
         set_current_item($this->item);
-//        $this->view->uri = item_file('permalink');
     }
     
     
     public function imageAction(){
-        require_once('application/helpers/FileFunctions.php');
-        require_once('application/helpers/StringFunctions.php');
-        require_once('application/helpers/UrlFunctions.php');
-        
-        $db = get_db();
-        
-        //get the id of the relation for 'representativeDepictionOf'...
-        $irp = $db->getTable('ItemRelationsProperty')->findBySql('label = ? ', array('Representative Depiction'), true);
-        assert(get_class($irp) == 'ItemRelationsProperty');
-        
-        //get id of the local part of that relation
-        $irt = $db->getTable('ItemRelationsItemRelation');
-        $ir  = $irt->findBySql('object_item_id = ? and property_id = ?', array($this->item->id, $irp->id),true);
-        assert(get_class($ir) == 'ItemRelationsItemRelation');
-        
-//        echo sprintf("looking for relation where object = %s and property = %s, got ir->id = %s", $tale->id, $irp->id, $ir->id);
-        $curItem = $db->getTable('Item')->find($ir->subject_item_id);
-
-        $this->view->item = $curItem;
-
-        
-        
+        $this->view->item = $this->getRelationshipMember('prl', 'isRepresentativeDepictionOf', null, $this->item, true);
     }
+    
+    public function eventsAction(){
+        $items = $this->getRelationshipMember('prl', 'isSignificantElementOf', null, $this->item, false);
+
+        if(!is_array($items)){
+            $items = array($items);
+        }
+        $filtered = $this->filterByItemType($items, 'Event');
+        
+        $this->_sendJsonResponse($this->_makeTimeline($filtered), "storyjs_jsonp_data");
+    }
+    
+
+    
+
 
 }
 ?>
