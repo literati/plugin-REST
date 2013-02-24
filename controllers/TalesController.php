@@ -2,6 +2,16 @@
 require_once('FetchController.php');
 class Rest_TalesController extends Rest_FetchController {
     
+    public $title;
+    public $item;
+    
+    public function init(){
+        $title = $this->_getParam('title');
+        if(!empty($title)){
+            $this->title = $this->deHyphenize($title);
+            $this->item  = $this->_findByDCTitle(ucwords($this->title));
+        }
+    }
     
     public function listAction(){
         $db = get_db();
@@ -24,10 +34,13 @@ class Rest_TalesController extends Rest_FetchController {
     }
     
     public function descriptionAction(){
-        $title = $this->_getParam('title');
-        $this->view->test = sprintf("you asked for %s", $title);
+        $this->view->test = $this->getMetaFieldValue('Dublin Core', 'Description', $this->item);
     }
     
+    public function textAction(){
+        set_current_item($this->item);
+//        $this->view->uri = item_file('permalink');
+    }
     
 }
 ?>
