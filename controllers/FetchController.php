@@ -9,7 +9,10 @@ abstract class Rest_FetchController extends Omeka_Controller_Action {
         
     }
 
-    
+    public function deHyphenize($string){
+        $words = explode('-', $string);
+        return implode(' ', $words);
+    }
     /**
      * @TODO allow additional params to be considered
      * @param array $params
@@ -313,6 +316,31 @@ abstract class Rest_FetchController extends Omeka_Controller_Action {
         echo sprintf("returning %s items", count($reduced));
         return $reduced;
     }
+    
+    
+    /**
+     * 
+     * @param  string $set the metadata set, ie 'Dublin Core'
+     * @param  string $element the element name, ie 'Title'
+     * @param  Item   $item an Omeka Item
+     * @return string the text value of the field
+     */
+    protected function getMetaFieldValue($set, $element, $item){
+        $db = get_db();
+        $el = $db->getTable('Element')->findByElementSetNameAndElementName($set, $element);
+        
+        if(!$el) return false;
+        
+        $texts = $db->getTable('ElementText')->findByElement($el->id);
+        
+        if(empty($texts)) return false;
+        
+        $value = array_shift($texts);
+        
+        
+        return $value->text;
+    }
+    
     
     /**
      * 
