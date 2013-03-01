@@ -53,10 +53,20 @@ class Rest_ImagesController extends Rest_FetchController {
         $h = $this->_getParam('height');
         $w = $this->_getParam('width');
         
+        $params     = array();
+        $fullsize   = array();
+        
         $items = $this->_getList();
         $this->view->imgs = "";
+        
         foreach($items as $item){
-            $this->view->imgs .= item_fullsize(array('width'=>$w, 'height'=>$h), 0, $item);
+
+            $params['width']  = $w == 0 ? null : $w;
+            $params['height'] = $h == 0 ? null : $h;
+            
+            $params['scale'] = 'tofit';
+            $this->view->imgs .= item_fullsize($params, 0, $item);
+
         }
     }
 }
