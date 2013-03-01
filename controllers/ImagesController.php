@@ -47,7 +47,18 @@ class Rest_ImagesController extends Rest_FetchController {
         
     }
     
-    
+    public function fullAction(){
+        $db = get_db();
+        
+        $h = $this->_getParam('height');
+        $w = $this->_getParam('width');
+        
+        $items = $this->_getList();
+        $this->view->imgs = "";
+        foreach($items as $item){
+            $this->view->imgs .= item_fullsize(array('width'=>$w, 'height'=>$h), 0, $item);
+        }
+    }
 }
 
 
