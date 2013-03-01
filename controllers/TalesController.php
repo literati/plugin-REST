@@ -43,7 +43,14 @@ class Rest_TalesController extends Rest_FetchController {
     
     
     public function imageAction(){
-        $this->view->item = $this->getRelationshipMember('prl', 'isRepresentativeDepictionOf', null, $this->item, true);
+        
+        $item = $this->getRelationshipMember('prl', 'isRepresentativeDepictionOf', null, $this->item, true);
+        
+        if(get_class($item) !== 'Item'){
+            debug(sprintf("no item returned to view for item->id = %s", $this->item->id));
+        }else{
+            $this->view->item = $item;
+        }
     }
     
     public function eventsAction(){

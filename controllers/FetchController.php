@@ -117,7 +117,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
             }
             return $items;
         }
-        $item = $db->getTable('Item')->find($result->record_id);
+        $item = $db->getTable('Item')->findBySql('id = ?',array($result->record_id), $one);
 
         return $item;
     }
