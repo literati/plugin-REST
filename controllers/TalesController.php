@@ -64,7 +64,13 @@ class Rest_TalesController extends Rest_FetchController {
         $this->_sendJsonResponse($this->_makeTimeline($filtered), "storyjs_jsonp_data");
     }
     
+    public function collectionsAction(){
+        $db = get_db();
+        $tbl = $db->getTable('Collection');
+        $cols = $tbl->findAll();
 
+        $this->view->collections = $cols;
+    }
     
 
 

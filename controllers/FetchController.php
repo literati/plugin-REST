@@ -149,7 +149,7 @@ class Rest_FetchController extends Omeka_Controller_Action {
             $dates[] = $d;
         }
         $timeline = new Timeline(array(
-                    "headline" => "Sample Timeline",
+                    "headline" => "Events",
                     "type" => "default",
                     "text" => "Poe's Republic of Letters",
                     "startDate" => Timeline_Util::timeline_format_date("2012-01-26"),
